@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo - Cara a Cara</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <h1>Cara a Cara</h1>
+    <p>Jogador: {{ player_name }}</p>
+    <p>Sala: {{ room }}</p>
+
+    <div id="selection">
+        <h2>Selecione seu personagem:</h2>
+        <div id="characters">
+            {% for character in characters %}
+            <div class="character-card">
+                <img src="{{ character['image'] }}" alt="{{ character['name'] }}">
+                <button onclick="selectCharacter('{{ character['name'] }}')">{{ character['name'] }}</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="gameplay" style="display: none;">
+        <h2>Fazer uma pergunta:</h2>
+        <input id="question" autocomplete="off">
+        <button onclick="askQuestion()">Perguntar</button>
+
+        <h2>Eliminar um personagem:</h2>
+        <div id="remaining-characters">
+            {% for character in characters %}
+            <div class="character-card" id="char-{{ character['name'] }}">
+                <img src="{{ character['image'] }}" alt="{{ character['name'] }}">
+                <button onclick="eliminateCharacter('{{ character['name'] }}')">{{ character['name'] }}</button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div id="chat">
+            <div id="messages"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const room = "{{ room }}";
+
+        socket.on('connect', () => {
+            socket.emit('join', {room: room});
+        });
+
+        socket.on('status', data => {
+            const messages = document.getElementById('messages');
+            messages.innerHTML += '<p>' + data.msg + '</p>';
+        });
+
+        socket.on('character_selected', data => {
+            const messages = document.getElementById('messages');
+            messages.innerHTML += '<p>' + data.player + ' selecionou ' + data.character + '</p>';
+            if (data.player === "{{ player_name }}") {
+                document.getElementById('selection').style.display = 'none';
+                document.getElementById('gameplay').style.display = 'block';
+            }
+        });
+
+        socket.on('question_asked', data => {
+            const messages = document.getElementById('messages');
+            messages.innerHTML += '<p><strong>' + data.player + ':</strong> ' + data.question + '</p>';
+        });
+
+        socket.on('character_eliminated', data => {
+            const messages = document.getElementById('messages');
+            messages.innerHTML += '<p>' + data.player + ' eliminou ' + data.character + '</p>';
+            const characterCard = document.getElementById('char-' + data.character);
+            if (characterCard) {
+                characterCard.style.display = 'none';
+            }
+        });
+
+        function selectCharacter(character) {
+            socket.emit('select_character', {character: character});
+        }
+
+        function askQuestion() {
+            const question = document.getElementById('question').value;
+            socket.emit('ask_question', {question: question});
+            document.getElementById('question').value = '';
+        }
+
+        function eliminateCharacter(character) {
+            socket.emit('eliminate_character', {character: character});
+        }
+    </script>
+</body>
+</html>
